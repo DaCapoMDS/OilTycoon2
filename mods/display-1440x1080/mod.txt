@@ -1,0 +1,11 @@
+4:3 at 1440x1080 - correct proportions, roughly twice the pixels of the default
+
+The engine has no aspect-ratio correction, so a 16:9 backbuffer stretches the
+image horizontally by 1.333x instead of widening the view. 1440x1080 is 4:3,
+uses the full height of a 1080p panel, and is the largest undistorted option.
+
+Windowed, because fullscreen validates the resolution against an enumerated
+mode list and silently falls back to 1280x1024.
+
+Note that the game rewrites DATA/ot2.cfg itself on exit. Applying this mod
+seeds the values; the game then maintains them.

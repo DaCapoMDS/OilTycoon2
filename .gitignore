@@ -16,6 +16,10 @@ game/
 decrypted/
 _staging/
 
+# Mod backups hold copies of ORIGINAL game files - never publish these.
+# The mods themselves are tracked; only the backups are not.
+mods/.backups/
+
 # Config and logs the game writes next to itself
 docs/ot2.cfg.shipped-encrypted
 docs/ot2.cfg.runtime-sample

@@ -82,6 +82,23 @@ correctly, which the game needs and which is easy to get wrong.
 The launcher picks up the game's own icon from *your* installed copy at
 runtime; no game artwork is bundled here.
 
+### Mods
+
+Every change lives in [`mods/`](mods/README.md); `game/` stays byte-identical
+to the disc until one is applied, and reverting restores it exactly.
+
+```powershell
+.\tools\bin\Ot2Mod.exe list
+.\tools\bin\Ot2Mod.exe apply  display-1440x1080
+.\tools\bin\Ot2Mod.exe revert all
+```
+
+The engine has no mod system — no override folder, no load order — so a mod
+has to overwrite files in the install. `Ot2Mod` backs up each original first,
+and re-encrypts your plain-text edits when the file it replaces is encrypted.
+
+Shipped: `display-1440x1080`, which corrects the horizontal stretch.
+
 ### Modern keys (WASD)
 
 The game's input is DirectInput with the keys compiled in — there is no
@@ -155,7 +172,8 @@ the manifest, a truncated asset would have sat there unnoticed.
 |---|---|
 | [`docs/SETUP-FACTORY-FORMAT.md`](docs/SETUP-FACTORY-FORMAT.md) | The Setup Factory container: overlay layout, XOR-0x07 engine obfuscation, MFC-serialised manifest, payload blocks |
 | [`docs/ENCRYPTION.md`](docs/ENCRYPTION.md) | The `encr` data-file cipher, fully solved |
-| [`docs/TUNING.md`](docs/TUNING.md) | Resolution and aspect ratio, game speed vs frame rate, and the full command-variable reference |
+| [`docs/TUNING.md`](docs/TUNING.md) | Resolution and aspect ratio, game speed vs frame rate, controls, the F1 profiler, and the full command-variable reference |
+| [`mods/README.md`](mods/README.md) | How mods are applied and reverted without altering the verified install |
 | [`docs/archive-manifest.tsv`](docs/archive-manifest.tsv) | All 3,337 files — relative path, size, compressed size, offset, CRC32 |
 
 ## The engine

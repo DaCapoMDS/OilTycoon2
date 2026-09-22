@@ -180,9 +180,19 @@ binary carries one.
 
 `exec` runs another `.cfg`, so tweaks can live in a separate file.
 
-## Example
+## Applying these settings
 
-Correct proportions at high resolution:
+Rather than editing the install, use the mod in `mods/display-1440x1080`,
+which carries exactly this configuration:
+
+```powershell
+tools\bin\Ot2Mod.exe apply display-1440x1080
+```
+
+It backs up the original first, so `revert` returns `game/` to a state that
+verifies 3337/3337 against the disc. See [`../mods/README.md`](../mods/README.md).
+
+The settings themselves:
 
 ```
 vid_fullscreen 0
@@ -191,3 +201,5 @@ vid_height 1080
 vid_colorbits 32
 drawfps 1
 ```
+
+Close the game before applying — it rewrites `DATA/ot2.cfg` on exit.

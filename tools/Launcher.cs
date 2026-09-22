@@ -29,7 +29,25 @@ class Launcher : Form {
     CheckBox cbDecrypt;
     Button btInstall, btVerify, btPlay, btDecrypt, btBrowseImage, btBrowseTarget;
     Button btApplyMod, btRevertMod, btRevertAll, btApplyRes, btKeys;
+    CheckBox cbPin;
     Process keysProc;
+
+    // On a dual-CCD Ryzen only one die carries the 3D V-Cache, and measurement
+    // on a 9950X3D put the cache die ahead: 56 ms a frame against 59 unpinned
+    // and 61 on the other die. Worth about 5%, and free. Pinning to half the
+    // cores would be actively unhelpful on a CPU without that split, so this
+    // is only offered by default where the part name says X3D.
+    static string CpuName() {
+        try {
+            using (var k = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(
+                       @"HARDWARE\DESCRIPTION\System\CentralProcessor\0"))
+                if (k != null) return (k.GetValue("ProcessorNameString") as string) ?? "";
+        } catch { }
+        return "";
+    }
+    static bool LooksLikeX3D() {
+        return CpuName().IndexOf("X3D", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
     ComboBox cmbRes;
     CheckBox cbFullscreen;
     ListBox lstMods;
@@ -131,7 +149,13 @@ class Launcher : Form {
         btDecrypt.Click += (s, e) => RunAsync(DoDecrypt);
         btPlay = Btn("Play", 450, y, 104, 34, true);
         btPlay.Click += (s, e) => DoPlay();
-        Add(btInstall); Add(btVerify); Add(btDecrypt); Add(btPlay);
+        cbPin = new CheckBox {
+            Text = "Pin to CCD0 + High priority",
+            Left = 566, Top = y + 8, Width = 240,
+            ForeColor = Muted, BackColor = Color.Transparent, FlatStyle = FlatStyle.Flat,
+            Checked = LooksLikeX3D()
+        };
+        Add(btInstall); Add(btVerify); Add(btDecrypt); Add(btPlay); Add(cbPin);
         y += 44;
 
         Add(SectionLabel("3.   Resolution        the engine assumes 4:3 - wider ratios stretch rather than widen", 14, y));
@@ -481,6 +505,30 @@ class Launcher : Form {
             Path.Combine(repoRoot, "decrypted", "DATA") + "\"", repoRoot);
     }
 
+    // Applied on a background thread: the process needs a moment before its
+    // affinity can be set, and blocking the UI for that would be rude.
+    void ApplyCpuTweaks(Process proc) {
+        var t = new Thread(() => {
+            try {
+                Thread.Sleep(2500);
+                proc.Refresh();
+                if (proc.HasExited) return;
+
+                int threads = Environment.ProcessorCount;
+                if (threads < 8) { Say("CPU has too few threads to pin usefully - skipped."); return; }
+
+                long mask = (1L << (threads / 2)) - 1;      // the lower half = first CCD
+                proc.ProcessorAffinity = (IntPtr)mask;
+                proc.PriorityClass = ProcessPriorityClass.High;
+                Say(string.Format("pinned to CCD0 (0x{0:X}) at High priority - {1}", mask, CpuName().Trim()));
+            } catch (Exception ex) {
+                Say("Could not apply CPU tweaks: " + ex.Message);
+            }
+        });
+        t.IsBackground = true;
+        t.Start();
+    }
+
     // ---- WASD helper --------------------------------------------------------
 
     // Keybinds.exe is a running process, not a file change, so it has no place
@@ -673,9 +721,10 @@ class Launcher : Form {
         // The game resolves config and logs against the working directory, not
         // the executable, so this must be set or it scatters files around.
         try {
-            Process.Start(new ProcessStartInfo(exe) { WorkingDirectory = target, UseShellExecute = true });
+            var proc = Process.Start(new ProcessStartInfo(exe) { WorkingDirectory = target, UseShellExecute = true });
             Say("Launched " + exe);
             Status("Game running.");
+            if (proc != null && cbPin.Checked) ApplyCpuTweaks(proc);
         } catch (Exception ex) { Say("Could not launch: " + ex.Message); }
     }
 }

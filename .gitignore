@@ -1,0 +1,32 @@
+# ---------------------------------------------------------------------------
+# No game content in this repository.
+#
+# Big Oil / Oil Tycoon 2 is commercial software and still under copyright.
+# This repo ships only tools and documentation; you supply your own disc.
+# ---------------------------------------------------------------------------
+
+# The disc image and anything extracted from it
+Big-Oil_Win_EN_Disc-Image/
+*.bin
+*.cue
+*.iso
+
+# The installed game and the decrypted data tree
+game/
+decrypted/
+_staging/
+
+# Config and logs the game writes next to itself
+docs/ot2.cfg.shipped-encrypted
+docs/ot2.cfg.runtime-sample
+log.txt
+*.log
+serialreg.txt
+maga.mg
+*.mg
+
+# Build output
+*.exe
+*.pdb
+*.obj
+tools/bin/

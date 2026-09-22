@@ -92,11 +92,30 @@ directly configurable. If pacing is poor rather than throughput, the lever is
 a D3D9 translation layer (DXVK's `d3d9.dll` dropped next to `game.exe`) or
 driver-level frame limiting — not game settings.
 
-## Performance: reflections cost you two thirds of your frame rate
+## Performance: slow, and not for the reasons you would guess
 
-Stock settings in a round give roughly **11 fps**, on any hardware. Turning
-reflections off gives **~30 fps**. This is the single most important thing to
-know about running this game.
+The game runs in the teens in a round — around **11 fps** stock — with both
+CPU and GPU idle. Idle hardware and a 90 ms frame means it is blocked, not
+busy.
+
+**Read the rest of this section with care.** The measurements below are
+indicative, not rigorous, and two confounds turned up late:
+
+1. **The camera sits wherever the last session left it**, so no two launches
+   render the same scene. The same settings produced 33 ms in one run and
+   66 ms in another. Differences smaller than about 2× are not trustworthy.
+2. **The profiler overlay is itself active in every measurement**, because
+   `drawfps 1` enables it, and it contributes roughly 31 of the queue syncs
+   on its own.
+
+What survives both caveats: turning scene features off produced 20 ms against
+90 ms in the same session, which is far outside the noise. `reflections` and
+`shadows` were the two that mattered. The precise split between them is not
+established.
+
+To judge it for yourself, park the camera somewhere recognisable and swap
+between `display-1440x1080` and `display-1440x1080-fast` without moving it.
+That is the controlled comparison none of the runs below actually were.
 
 ### What the profiler showed
 
@@ -162,16 +181,24 @@ from configuration.
 |---|---|
 | Arrow keys | Move the map |
 | `Esc` | Open the menu |
-| `F1` | Built-in developer overlay (see below) |
+
+**No F-key is bound.** An earlier version of this document claimed `F1`
+toggles the developer overlay. It does not — nothing happens. The overlay is
+enabled by the `drawfps` command variable, not by a key.
 
 `tools/Keybinds.exe` remaps keys from outside the game, defaulting to WASD
 over the arrows. `Esc` needs no remapping.
 
-## The F1 developer overlay
+## The developer overlay
 
-The engine ships with its own profiler, left in the retail build. `F1`
-toggles it, and it is the right instrument for diagnosing stutter — average
-frame rate alone will not tell you whether pacing is the problem.
+The engine ships with its own profiler, left in the retail build. It is
+enabled by `drawfps 1` in the config — there is no key for it.
+
+**It is not free.** With it on, the frame carries roughly 31 CPU/GPU
+synchronisation points that disappear when it is off, measured with the same
+settings in the same session. It barely moves the frame rate (15.25 vs 15.2
+fps), but it means every measurement below was taken with the overlay
+running, so treat the sync counts as including its own contribution.
 
 | Line | Meaning |
 |---|---|

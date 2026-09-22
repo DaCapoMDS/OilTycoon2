@@ -17,6 +17,41 @@ Shipped here: the toolchain, the file-format documentation, and a manifest of
 filenames, sizes and CRC32 checksums. **You supply your own disc.** Nothing
 here will produce a playable game without it.
 
+No download links are provided, and none will be added.
+
+## What you need
+
+A retail *Big Oil* CD, or an image you made from one. Dump it with any disc
+imaging tool to `.bin`/`.cue` (raw `MODE1/2352`) — `.iso` works too.
+
+The game was never released digitally and its publisher, Tri Synergy, is
+gone, so second-hand physical copies are realistically the only source. If
+a storefront ever does list it, buy it there.
+
+### Is my image a good dump?
+
+The English release this project was built and tested against:
+
+| | |
+|---|---|
+| File | `Big Oil.bin` + `Big Oil.cue` |
+| Size | 319,756,752 bytes |
+| Layout | single track, `MODE1/2352`, 135,951 sectors |
+| SHA-256 | `BDC3A2FA4CBEC95289A6525D3A84BFAEDDAD0A3E17082D5D542662D651637310` |
+| MD5 | `85822D4D147321234AB74F427F984F61` |
+
+```
+FILE "Big Oil.bin" BINARY
+  TRACK 01 MODE1/2352
+    INDEX 01 00:00:00
+```
+
+A different hash does not mean your disc is bad — regional releases and
+re-presses differ. What actually matters is the per-file check: after
+installing, the toolchain verifies all 3,337 files against CRC32 values held
+in the installer's own manifest. **That is the real test of a good dump**, and
+it works regardless of which pressing you have.
+
 ## Why you need this at all
 
 The disc's installer, `Big Oil Setup Release.exe`, **crashes on modern
@@ -29,6 +64,25 @@ and hand it the archive offset, so you can skip the stub and invoke the engine
 yourself. That is what `setup.ps1` does.
 
 ## Usage
+
+### The launcher
+
+If you'd rather not touch a terminal:
+
+```powershell
+.\tools\build.ps1                          # one time
+.\tools\bin\OilTycoon2Launcher.exe
+```
+
+Pick your disc image, choose where to install, press **Install and verify**.
+The other buttons re-verify an existing install, decrypt the data files for
+modding, and launch the game — the last one sets the working directory
+correctly, which the game needs and which is easy to get wrong.
+
+The launcher picks up the game's own icon from *your* installed copy at
+runtime; no game artwork is bundled here.
+
+### Or from the command line
 
 ```powershell
 .\setup.ps1 -Bin "D:\images\Big Oil.bin" -Decrypt

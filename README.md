@@ -82,6 +82,22 @@ correctly, which the game needs and which is easy to get wrong.
 The launcher picks up the game's own icon from *your* installed copy at
 runtime; no game artwork is bundled here.
 
+### Resolution
+
+The launcher has a resolution picker covering 4:3, 5:4, 16:10 and 16:9 from
+1024×768 up to 3840×2160. Pick one, press **Apply resolution**, and it
+writes a display mod and applies it, replacing whichever was active.
+
+Each entry states its aspect and what that costs. **The engine has no
+aspect-ratio correction** — it builds its projection assuming 4:3 and never
+looks at the backbuffer — so 16:9 stretches the picture by 1.33× rather than
+showing more of the map. 16:9 is offered because filling the screen is a
+reasonable thing to want; just know that it distorts. `1440×1080` is the
+largest undistorted option on a 1080p display.
+
+Fullscreen is a checkbox but usually refuses and falls back to 1280×1024, so
+windowed is the default.
+
 ### Mods
 
 Every change lives in [`mods/`](mods/README.md); `game/` stays byte-identical

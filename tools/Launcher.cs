@@ -28,8 +28,39 @@ class Launcher : Form {
     TextBox tbImage, tbTarget;
     CheckBox cbDecrypt;
     Button btInstall, btVerify, btPlay, btDecrypt, btBrowseImage, btBrowseTarget;
-    Button btApplyMod, btRevertMod, btRevertAll;
+    Button btApplyMod, btRevertMod, btRevertAll, btApplyRes;
+    ComboBox cmbRes;
+    CheckBox cbFullscreen;
     ListBox lstMods;
+
+    // Offered resolutions. The engine builds its projection assuming 4:3 and
+    // never corrects for the backbuffer, so anything wider is stretched rather
+    // than widened. That is stated here instead of being hidden.
+    class Res {
+        public int W, H; public string Aspect; public string Note;
+        public Res(int w, int h, string a, string n) { W = w; H = h; Aspect = a; Note = n; }
+        public override string ToString() {
+            return string.Format("{0,4} x {1,-4}   {2,-6} {3}", W, H, Aspect, Note);
+        }
+    }
+    static readonly Res[] Resolutions = {
+        new Res(1024,  768, "4:3",  "correct proportions"),
+        new Res(1280,  960, "4:3",  "correct proportions"),
+        new Res(1400, 1050, "4:3",  "correct proportions"),
+        new Res(1440, 1080, "4:3",  "correct proportions - best on a 1080p screen"),
+        new Res(1600, 1200, "4:3",  "correct proportions - needs a 1200+ tall screen"),
+        new Res(1920, 1440, "4:3",  "correct proportions - needs a 1440+ tall screen"),
+        new Res(1280, 1024, "5:4",  "stretched 1.07x"),
+        new Res(1280,  800, "16:10","stretched 1.11x"),
+        new Res(1680, 1050, "16:10","stretched 1.11x"),
+        new Res(1920, 1200, "16:10","stretched 1.11x"),
+        new Res(1280,  720, "16:9", "stretched 1.33x"),
+        new Res(1366,  768, "16:9", "stretched 1.33x"),
+        new Res(1600,  900, "16:9", "stretched 1.33x"),
+        new Res(1920, 1080, "16:9", "stretched 1.33x - fills a 1080p screen"),
+        new Res(2560, 1440, "16:9", "stretched 1.33x"),
+        new Res(3840, 2160, "16:9", "stretched 1.33x"),
+    };
     RichTextBox log;
     Label lbImageInfo, lbStatus;
     ProgressBar bar;
@@ -47,8 +78,8 @@ class Launcher : Form {
             Path.GetDirectoryName(Application.ExecutablePath), "..", ".."));
 
         Text = "Oil Tycoon 2 - Revival Launcher";
-        ClientSize = new Size(820, 790);
-        MinimumSize = new Size(760, 700);
+        ClientSize = new Size(820, 860);
+        MinimumSize = new Size(780, 740);
         Font = new Font("Segoe UI", 9f);
         StartPosition = FormStartPosition.CenterScreen;
         BackColor = Ink;
@@ -102,7 +133,30 @@ class Launcher : Form {
         Add(btInstall); Add(btVerify); Add(btDecrypt); Add(btPlay);
         y += 44;
 
-        Add(SectionLabel("3.   Mods        game\\ stays identical to the disc until one is applied", 14, y));
+        Add(SectionLabel("3.   Resolution        the engine assumes 4:3 - wider ratios stretch rather than widen", 14, y));
+        y += 26;
+
+        cmbRes = new ComboBox {
+            Left = 14, Top = y, Width = 396, DropDownStyle = ComboBoxStyle.DropDownList,
+            BackColor = Field, ForeColor = Parch, FlatStyle = FlatStyle.Flat,
+            Font = new Font("Consolas", 9f)
+        };
+        foreach (var r in Resolutions) cmbRes.Items.Add(r);
+        cmbRes.SelectedIndex = 3;                       // 1440x1080
+        cbFullscreen = new CheckBox {
+            Text = "Fullscreen (often refused - falls back to 1280x1024)",
+            Left = 422, Top = y + 2, Width = 330,
+            ForeColor = Muted, BackColor = Color.Transparent, FlatStyle = FlatStyle.Flat
+        };
+        Add(cmbRes); Add(cbFullscreen);
+        y += 30;
+
+        btApplyRes = Btn("Apply resolution", 14, y, 150, 28, true);
+        btApplyRes.Click += (s, e) => RunAsync(ApplyResolution);
+        Add(btApplyRes);
+        y += 40;
+
+        Add(SectionLabel("4.   Mods        game\\ stays identical to the disc until one is applied", 14, y));
         y += 26;
 
         lstMods = new ListBox {
@@ -327,6 +381,8 @@ class Launcher : Form {
         btInstall.Enabled = btVerify.Enabled = btDecrypt.Enabled = btPlay.Enabled = !busy;
         btBrowseImage.Enabled = btBrowseTarget.Enabled = !busy;
         btRevertAll.Enabled = !busy;
+        btApplyRes.Enabled = !busy;
+        cmbRes.Enabled = cbFullscreen.Enabled = !busy;
         lstMods.Enabled = !busy;
         if (busy) { btApplyMod.Enabled = btRevertMod.Enabled = false; }
         else UpdateModLabels();          // re-enables per applied state
@@ -480,6 +536,87 @@ class Launcher : Form {
         Run(Path.Combine(ToolsBin, "Ot2Mod.exe"),
             verb + " \"" + sel + "\" \"" + tbTarget.Text.Trim() + "\"", repoRoot);
         RefreshMods();
+    }
+
+    // Writes a display mod for the chosen resolution and applies it, replacing
+    // whichever display mod was applied before. Generated rather than shipped
+    // one-per-resolution, so the mods folder does not fill up with near
+    // duplicates.
+    void ApplyResolution() {
+        Res r = null; bool full = false;
+        Invoke((MethodInvoker)(() => { r = cmbRes.SelectedItem as Res; full = cbFullscreen.Checked; }));
+        if (r == null) { Say("Pick a resolution first."); return; }
+        if (GameRunningWarn()) return;
+        EnsureTools();
+
+        string name = string.Format("display-{0}x{1}{2}", r.W, r.H, full ? "-fullscreen" : "");
+        Say("");
+        Say("=== resolution " + r.W + " x " + r.H + " (" + r.Aspect + ") ===");
+        if (r.Aspect != "4:3")
+            Say("Note: " + r.Aspect + " is " + r.Note + ". The engine has no aspect correction.");
+
+        // take down any display mod already applied, so they cannot stack
+        foreach (var d in Directory.Exists(ModsRoot) ? Directory.GetDirectories(ModsRoot) : new string[0]) {
+            string other = Path.GetFileName(d);
+            if (!other.StartsWith("display-", StringComparison.OrdinalIgnoreCase)) continue;
+            if (other.Equals(name, StringComparison.OrdinalIgnoreCase)) continue;
+            if (ModApplied(other))
+                Run(Path.Combine(ToolsBin, "Ot2Mod.exe"),
+                    "revert \"" + other + "\" \"" + tbTarget.Text.Trim() + "\"", repoRoot);
+        }
+
+        string modDir = Path.Combine(ModsRoot, name);
+        Directory.CreateDirectory(Path.Combine(modDir, "DATA"));
+        // Do not clobber a description someone wrote by hand.
+        string modTxt = Path.Combine(modDir, "mod.txt");
+        if (!File.Exists(modTxt)) File.WriteAllText(modTxt, string.Format(
+            "{0}x{1} ({2}) - {3}{4}",
+            r.W, r.H, r.Aspect, r.Note,
+            Environment.NewLine + Environment.NewLine +
+            "Generated by the launcher. The engine builds its projection assuming" + Environment.NewLine +
+            "4:3 and never corrects for the backbuffer, so wider ratios stretch the" + Environment.NewLine +
+            "image instead of widening the view." + Environment.NewLine));
+        File.WriteAllText(Path.Combine(modDir, "DATA", "ot2.cfg"), BuildCfg(r, full));
+
+        if (ModApplied(name))
+            Run(Path.Combine(ToolsBin, "Ot2Mod.exe"),
+                "revert \"" + name + "\" \"" + tbTarget.Text.Trim() + "\"", repoRoot);
+        Run(Path.Combine(ToolsBin, "Ot2Mod.exe"),
+            "apply \"" + name + "\" \"" + tbTarget.Text.Trim() + "\"", repoRoot);
+        RefreshMods();
+    }
+
+    static string BuildCfg(Res r, bool fullscreen) {
+        var sb = new StringBuilder();
+        sb.AppendLine("// Generated by the Oil Tycoon 2 launcher.");
+        sb.AppendLine("// " + r.W + "x" + r.H + "  " + r.Aspect + " - " + r.Note);
+        sb.AppendLine();
+        sb.AppendLine("vid_colorbits   32");
+        sb.AppendLine("vid_fullscreen  " + (fullscreen ? "1" : "0"));
+        sb.AppendLine("vid_width       " + r.W);
+        sb.AppendLine("vid_height      " + r.H);
+        sb.AppendLine();
+        sb.AppendLine("water           2");
+        sb.AppendLine("shadows         1");
+        sb.AppendLine("reflections     1");
+        sb.AppendLine("particles       1");
+        sb.AppendLine("texturedetail   2");
+        sb.AppendLine();
+        sb.AppendLine("citydistance            135");
+        sb.AppendLine("cityreflectiondistance  75");
+        sb.AppendLine("cityshadowdistance      50");
+        sb.AppendLine();
+        sb.AppendLine("treeloddist       57");
+        sb.AppendLine("treemaxdist       175");
+        sb.AppendLine("treepatchmaxdist  175");
+        sb.AppendLine("treeblendstart    115");
+        sb.AppendLine("drawtrees         1");
+        sb.AppendLine("drawcars          1");
+        sb.AppendLine("drawwaves         1");
+        sb.AppendLine();
+        sb.AppendLine("// F1 toggles the engine's own profiler; this is the simple counter.");
+        sb.AppendLine("drawfps 1");
+        return sb.ToString();
     }
 
     void DoRevertAll() {

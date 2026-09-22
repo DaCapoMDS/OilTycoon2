@@ -363,25 +363,21 @@ class Launcher : Form {
     }
 
     void DoVerify() {
-        EnsureTools();
         string img = tbImage.Text.Trim();
         string target = tbTarget.Text.Trim();
-        if (!Directory.Exists(target)) { Say("No install at " + target); return; }
+        if (!File.Exists(img)) { Say("Pick a disc image first - verification reads the manifest from it."); return; }
+        if (!File.Exists(Path.Combine(target, "game.exe"))) { Say("No game.exe at " + target); return; }
+        EnsureTools();
 
-        string dir = Path.GetDirectoryName(img);
-        string dat = Path.Combine(dir ?? "", "irsetup.dat");
-        string setup = Path.Combine(dir ?? "", "Big Oil Setup Release.exe");
-        if (!File.Exists(dat) || !File.Exists(setup)) {
-            Say("Verification needs irsetup.dat and the setup exe from the disc,");
-            Say("so point the disc image box at a mounted disc - or just use");
-            Say("\"Install and verify\", which mounts the image for you.");
-            return;
-        }
+        // The manifest lives inside the disc image, so setup.ps1 -VerifyOnly
+        // mounts it for us rather than us duplicating the mount logic here.
         Status("Verifying 3,337 files...");
         Say("");
         Say("=== Verify ===");
-        Run(Path.Combine(ToolsBin, "Extract.exe"),
-            "\"" + dat + "\" \"" + setup + "\" \"\" --verify \"" + target + "\"", repoRoot);
+        string args = "-NoProfile -ExecutionPolicy Bypass -File \"" +
+                      Path.Combine(repoRoot, "setup.ps1") + "\"" +
+                      " -Bin \"" + img + "\" -Target \"" + target + "\" -VerifyOnly";
+        Run("powershell", args, repoRoot);
     }
 
     void DoDecrypt() {

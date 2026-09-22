@@ -237,6 +237,13 @@ class Program {
 
     const string PREFIX = @"E:\MasterInstall\Big Oil\Master Full";
 
+    // Files the game legitimately rewrites at runtime. They will not match the
+    // archive after the game has been played once, and restoring them would
+    // throw away the player's settings -- so verify reports them separately
+    // and repair leaves them alone.
+    static readonly HashSet<string> Volatile = new HashSet<string>(
+        new[] { @"DATA\ot2.cfg" }, StringComparer.OrdinalIgnoreCase);
+
     // Manifest strings are Windows ANSI (cp1252), not ASCII -- several asset
     // filenames carry German umlauts.
     static Encoding Ansi = Encoding.GetEncoding(1252);
@@ -348,6 +355,11 @@ class Program {
                         bad = d.Length != r.USize || Crc32(d, d.Length) != r.CRC;
                     }
                     if (!bad) { fine++; continue; }
+                    if (Volatile.Contains(r.Rel)) {
+                        Console.WriteLine("  KEEPING  {0} (rewritten by the game; restoring it would discard settings)", r.Rel);
+                        fine++;
+                        continue;
+                    }
                     if (r.CSize != r.USize) {
                         cannot++;
                         Console.WriteLine("  CANNOT (compressed) {0}", r.Rel);
@@ -374,19 +386,34 @@ class Program {
         if (vi >= 0) {
             // verify an installed tree against the archive manifest (size + CRC32)
             string root = args[vi + 1];
-            int ok = 0, badCrc = 0, badSize = 0, missing = 0;
+            int ok = 0, badCrc = 0, badSize = 0, missing = 0, changed = 0;
             var problems = new List<string>();
+            var touched = new List<string>();
             foreach (var r in recs) {
                 string p = Path.Combine(root, r.Rel);
-                if (!File.Exists(p)) { missing++; problems.Add("MISSING  " + r.Rel); continue; }
+                bool vol = Volatile.Contains(r.Rel);
+                if (!File.Exists(p)) {
+                    if (vol) { changed++; touched.Add(r.Rel + " (absent; the game recreates it)"); continue; }
+                    missing++; problems.Add("MISSING  " + r.Rel); continue;
+                }
                 var fi = new FileInfo(p);
-                if (fi.Length != r.USize) { badSize++; problems.Add(string.Format("SIZE     {0} want {1} got {2}", r.Rel, r.USize, fi.Length)); continue; }
+                if (fi.Length != r.USize) {
+                    if (vol) { changed++; touched.Add(string.Format("{0} ({1} bytes, archive has {2})", r.Rel, fi.Length, r.USize)); continue; }
+                    badSize++; problems.Add(string.Format("SIZE     {0} want {1} got {2}", r.Rel, r.USize, fi.Length)); continue;
+                }
                 var data = File.ReadAllBytes(p);
-                if (Crc32(data, data.Length) != r.CRC) { badCrc++; problems.Add("CRC      " + r.Rel); continue; }
+                if (Crc32(data, data.Length) != r.CRC) {
+                    if (vol) { changed++; touched.Add(r.Rel + " (same size, different contents)"); continue; }
+                    badCrc++; problems.Add("CRC      " + r.Rel); continue;
+                }
                 ok++;
             }
             Console.WriteLine("VERIFY {0}", root);
             Console.WriteLine("  match={0}  missing={1}  wrong-size={2}  wrong-crc={3}  (of {4})", ok, missing, badSize, badCrc, recs.Count);
+            if (changed > 0) {
+                Console.WriteLine("  {0} file(s) rewritten by the game - expected, not corruption:", changed);
+                foreach (var t in touched) Console.WriteLine("      " + t);
+            }
             int shownV = 0;
             foreach (var p in problems) { Console.WriteLine("  " + p); if (++shownV >= 40) { Console.WriteLine("  ... {0} more", problems.Count - shownV); break; } }
             return (missing + badSize + badCrc) == 0 ? 0 : 2;

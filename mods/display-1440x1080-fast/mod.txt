@@ -1,0 +1,19 @@
+1440x1080 with reflections and shadows off - the measured fix for 11 fps
+
+Frame 33 ms and zero queue syncs, against 90-106 ms and 41 syncs with the
+stock settings. Roughly 30 fps instead of 11.
+
+Reflections are the culprit. The engine renders the scene again per
+reflective surface and waits on each result, so the CPU stalls on the GPU
+around 41 times a frame - which is why both sat idle while 90 ms elapsed, and
+why a fast GPU and DXVK made no difference. Turning reflections off removes
+every one of those stalls.
+
+Shadows do not stall but cost roughly 26 ms of straight render time, so they
+go too.
+
+Everything else stays: trees, water, particles, cars, waves, full texture
+detail, full draw distance. The view still looks like the game.
+
+Resolution is 4:3 at full screen height, because the engine has no
+aspect-ratio correction - see docs/TUNING.md.

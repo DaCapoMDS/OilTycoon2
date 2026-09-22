@@ -92,6 +92,66 @@ directly configurable. If pacing is poor rather than throughput, the lever is
 a D3D9 translation layer (DXVK's `d3d9.dll` dropped next to `game.exe`) or
 driver-level frame limiting — not game settings.
 
+## Performance: reflections cost you two thirds of your frame rate
+
+Stock settings in a round give roughly **11 fps**, on any hardware. Turning
+reflections off gives **~30 fps**. This is the single most important thing to
+know about running this game.
+
+### What the profiler showed
+
+`F1` alongside the DXVK HUD, in the same scene:
+
+| | stock | reflections + shadows off |
+|---|---|---|
+| Frame Time | 90–106 ms | **33 ms** |
+| Logic Time | 0–1 ms | 0 ms |
+| Render Time | 90–106 ms | 33 ms |
+| Present | 0 ms | 0 ms |
+| `Time 0` | 48–58 ms | 6 ms |
+| **Queue syncs / frame** | **41** | **0** |
+| Render passes | 53 | 4 |
+| Draw calls | 3,579 | 3,278 |
+| GPU load | 9% | 4% |
+
+The giveaway is **41 queue syncs a frame**. A queue sync is the CPU stopping
+dead until the GPU drains. The engine renders the scene again for each
+reflective surface and waits on each result, so the two processors take turns
+instead of working together — which is why both sit idle while 90 ms passes,
+and why `Present` is 0: nothing is waiting on the display, it is waiting on
+itself.
+
+Isolated by elimination:
+
+| Setting | Effect |
+|---|---|
+| `reflections 1` | **all 41 syncs**, ~50 ms. Confirmed: shadows off with reflections on still produced 41 syncs and 93 ms |
+| `shadows 1` | ~26 ms, no syncs |
+| trees, water, particles, cars | ordinary render cost, no stalls |
+
+So `reflections 0` is the fix. `shadows 0` is a large bonus. Everything else
+can stay on.
+
+Use `mods/display-1440x1080-fast`.
+
+### DXVK does not fix this
+
+DXVK v3.1.1 loads correctly and changes nothing: still 41 syncs, still ~11
+fps. Neither does `d3d9.cachedDynamicBuffers` nor `d3d9.apitraceMode`, which
+target lock-induced stalls — these syncs are not from buffer locking, they
+are the engine explicitly waiting on its own reflection passes. No translation
+layer can remove a wait the game asks for.
+
+DXVK is still worth keeping for its HUD, which is what made the syncs
+visible. It is optional: `Ot2Mod revert dxvk`.
+
+### Measurement caveat
+
+The camera sits wherever the previous session left it, so each launch renders
+a different view and the numbers move between runs. Differences of a few
+milliseconds mean nothing here. The 90 ms → 33 ms and 41 → 0 results are far
+outside that noise; finer comparisons in these tables are not.
+
 ## Controls
 
 The keys are compiled into `core.dll` — DirectInput, no binding table in any

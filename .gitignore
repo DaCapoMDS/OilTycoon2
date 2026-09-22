@@ -25,6 +25,11 @@ mods/.backups/
 # decrypted data; the tool is tracked, its output is not.
 mods/animations-*/
 
+# DXVK is third-party (zlib licence, github.com/doitsujin/dxvk). Its binary is
+# not redistributed here; tools/get-dxvk.ps1 fetches it. The mod description
+# is tracked so the folder still documents itself.
+mods/dxvk/d3d9.dll
+
 # Config and logs the game writes next to itself
 docs/ot2.cfg.shipped-encrypted
 docs/ot2.cfg.runtime-sample

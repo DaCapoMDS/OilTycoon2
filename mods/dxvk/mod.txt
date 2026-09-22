@@ -1,0 +1,19 @@
+DXVK - translates the game's Direct3D 9 calls to Vulkan
+
+For the 20 fps problem. Engines of this era issue thousands of small draw
+calls per frame, and modern drivers carry far more per-call overhead on the
+legacy D3D9 path than 2006 drivers did, so the bottleneck is the CPU feeding
+the GPU rather than the GPU itself - which is why a fast card does not help
+and why the frame rate barely moves with resolution.
+
+DXVK collapses that overhead. It cannot affect game speed: the simulation
+runs on a logical clock, not on frames.
+
+This drops a d3d9.dll next to game.exe, which Windows loads in preference to
+the system one. Reverting deletes it and the game goes straight back to the
+system D3D9.
+
+Not part of this repository. DXVK is third-party (zlib licence,
+github.com/doitsujin/dxvk) and its binary is not redistributed here -
+tools\get-dxvk.ps1 fetches it. Build used here: v3.1.1, x32, because game.exe
+is a 32-bit binary.

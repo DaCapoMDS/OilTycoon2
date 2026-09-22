@@ -68,14 +68,43 @@ try {
     # 541197 (0x8420D) is where the support-file section begins.
     Step 'Running the installer engine'
     Write-Host '    A UAC prompt will appear (Windows flags irsetup.exe as an installer).'
-    Write-Host "    In the wizard, set the install folder to:  $Target"
+    Write-Host "    Install anywhere you like - this script finds it afterwards."
+    Write-Host "    (suggested: $Target)"
     $p = Start-Process -FilePath $engine `
         -ArgumentList "`"__IRAFN:$setupExe`" __IRAOFF:541197" -PassThru -Wait
     Write-Host "    installer exited with $($p.ExitCode)"
 
-    if (-not (Test-Path $Target)) {
-        throw "Nothing at $Target - re-run and set that path in the wizard's install-folder step."
+    # Where did it actually go? The wizard lets the user pick, and its own
+    # default is C:\Tri Synergy\Big Oil - so never assume $Target.
+    $install = $null
+    if (Test-Path -LiteralPath (Join-Path $Target 'game.exe')) {
+        $install = $Target
     }
+    else {
+        # The installer logs every file it writes to %WINDIR%\<product> Setup Log.txt
+        $log = Join-Path $env:WINDIR 'Big Oil Setup Log.txt'
+        if (Test-Path -LiteralPath $log) {
+            # -Last: the log survives across runs, so trust the newest entry
+            $line = Select-String -LiteralPath $log -Pattern 'Archive file:\s*(.+\\game\.exe)' |
+                    Select-Object -Last 1
+            if ($line) {
+                $candidate = Split-Path $line.Matches[0].Groups[1].Value.Trim()
+                if (Test-Path -LiteralPath (Join-Path $candidate 'game.exe')) { $install = $candidate }
+            }
+        }
+    }
+    if (-not $install) {
+        throw @"
+Could not find the installed game.
+Checked: $Target
+     and: $(Join-Path $env:WINDIR 'Big Oil Setup Log.txt')
+If you installed somewhere else, re-run with -Target "<that folder>".
+"@
+    }
+    if ($install -ne $Target) {
+        Write-Host "    installed to $install (not the suggested path) - continuing there" -ForegroundColor Yellow
+    }
+    $Target = $install
 
     # --- 5. verify -----------------------------------------------------------
     Step 'Verifying against the archive manifest'

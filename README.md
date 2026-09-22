@@ -37,8 +37,10 @@ yourself. That is what `setup.ps1` does.
 That will:
 
 1. convert the `MODE1/2352` disc image to ISO and mount it,
-2. drive the installer engine directly (approve the UAC prompt; set the
-   install folder when the wizard asks),
+2. drive the installer engine directly — approve the UAC prompt, then install
+   **wherever you like**. The wizard defaults to `C:\Tri Synergy\Big Oil`;
+   the script reads the installer's own log afterwards to find where it
+   actually went, so `-Target` is only a suggestion,
 3. **verify all 3,337 files** against CRC32s read from the installer's own
    manifest,
 4. repair any file that fails, where the archive stores it uncompressed,

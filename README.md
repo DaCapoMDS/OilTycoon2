@@ -92,8 +92,10 @@ changed from config. `tools/Keybinds.exe` remaps them from outside instead:
 .\tools\bin\Keybinds.exe
 ```
 
-It edits `tools/bin/keybinds.ini`, created on first run, which defaults to
-WASD over the arrow keys. It is active **only while the game window has
+The game's own keys are **arrows** to move the map, **Esc** for the menu, and
+**F1** for a developer overlay left in the retail build. `Keybinds.exe` edits
+`tools/bin/keybinds.ini`, created on first run, which defaults to WASD over
+the arrow keys — `Esc` and `F1` already work and need no remapping. It is active **only while the game window has
 focus**, every other application passes through untouched, and it translates
 keys without recording anything. Close the console window to stop it.
 

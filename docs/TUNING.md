@@ -84,6 +84,52 @@ directly configurable. If pacing is poor rather than throughput, the lever is
 a D3D9 translation layer (DXVK's `d3d9.dll` dropped next to `game.exe`) or
 driver-level frame limiting — not game settings.
 
+## Controls
+
+The keys are compiled into `core.dll` — DirectInput, no binding table in any
+data file, and no `bind` among the command variables. They cannot be changed
+from configuration.
+
+| Key | Action |
+|---|---|
+| Arrow keys | Move the map |
+| `Esc` | Open the menu |
+| `F1` | Built-in developer overlay (see below) |
+
+`tools/Keybinds.exe` remaps keys from outside the game, defaulting to WASD
+over the arrows. `Esc` needs no remapping.
+
+## The F1 developer overlay
+
+The engine ships with its own profiler, left in the retail build. `F1`
+toggles it, and it is the right instrument for diagnosing stutter — average
+frame rate alone will not tell you whether pacing is the problem.
+
+| Line | Meaning |
+|---|---|
+| `FPS` | Frames per second |
+| `Frame Time` | Total milliseconds for the frame — the number that matters for smoothness |
+| `Logic Time` | Simulation cost. Should stay low and roughly flat |
+| `Render Time` | Scene rendering |
+| `Render Game Time` / `Render Window System` | Split of world versus UI |
+| `Present` | Time blocked in D3D `Present` — a high value here means waiting on the display, i.e. vsync, not a slow game |
+| `Time 0` … `Time 6` | Internal subsystem timers |
+| `Allocted Memory` | Allocation in KB (sic) |
+| `Number of ID Objects` | Live object count |
+
+Reading it:
+
+- **`Frame Time` steady, `Present` large** — you are vsync-bound. Normal, and
+  as smooth as the engine will get.
+- **`Frame Time` spiky while `Logic Time` stays flat** — a rendering or
+  driver pacing problem, not the simulation. This is the case where a D3D9
+  translation layer such as DXVK helps.
+- **`Logic Time` spiking** — the simulation itself is stalling. Reducing
+  `citydistance` or object counts would help; frame settings will not.
+
+Because the simulation runs on a logical clock, none of this changes game
+speed — see above.
+
 ## Command variables
 
 Recovered from the name table in `core.dll` (UTF-16). Defaults where the

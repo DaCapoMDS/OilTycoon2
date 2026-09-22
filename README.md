@@ -116,7 +116,8 @@ The engine has no mod system — no override folder, no load order — so a mod
 has to overwrite files in the install. `Ot2Mod` backs up each original first,
 and re-encrypts your plain-text edits when the file it replaces is encrypted.
 
-Shipped: `display-1440x1080`, which corrects the horizontal stretch.
+Shipped: `balanced` (start here), `display-1440x1080` (full quality, correct
+aspect), `minimum` (diagnostic control), `dxvk`.
 
 ### Modern keys (WASD)
 
@@ -249,6 +250,35 @@ stock-market corporation has presumably never loaded properly.
 including `GodMode`, `InfiniteMoney`, `MegaCheat`, `DumpLogic`, `ShowNetStats`
 and an `Exec` that runs script files. The multiplayer stack
 (`EstablishServer` / `ConnectToServer`) is still present.
+
+## Performance
+
+The game runs at roughly **10 fps** in a developed round regardless of
+hardware. Profiling settles why: **83–85% of CPU time is one transform loop
+inside `Renderer.dll`**, about half of it legacy **x87** scalar float code
+from 2003 compilers. The GPU sits at 4–10%, Direct3D and the driver total
+~11%, and game logic under 2%.
+
+So it is not the GPU, the driver, the API, the game logic, or any single
+graphics setting — and it is why **DXVK makes no difference**, measured
+directly. Every setting feeds the same loop and removes only a slice, so
+gains come from reducing total work: `mods/balanced` gets from ~10 fps to the
+30s, `mods/minimum` reaches ~50.
+
+Full analysis, including the hot addresses and the disassembly:
+[`docs/TUNING.md`](docs/TUNING.md).
+
+## Diagnostic tools
+
+Built by `tools/build.ps1` alongside the rest:
+
+| Tool | What it does |
+|---|---|
+| `Sampler.exe` | Sampling profiler — suspends the busiest thread, reads the instruction pointer, attributes it to a module and to hot addresses. No dependencies; x86 because the game is |
+| `rvadump.ps1` | Translates an RVA to a file offset and dumps the bytes, for reading the hot code |
+| `boost.ps1` | CPU affinity, priority and power plan, applied to the running process |
+| `screenshot.ps1` | Captures the screen, for reading the in-game profiler without a camera |
+| `sendkey.ps1` / `click.ps1` | Inject a keystroke or a click in the game's own 1600×1200 UI space |
 
 ## Known issues
 

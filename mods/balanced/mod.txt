@@ -1,0 +1,1 @@
+Balanced: keeps trees/cars/particles, drops the extra scene passes, citydistance 70. The practical settings after profiling.

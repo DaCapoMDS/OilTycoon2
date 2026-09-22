@@ -24,14 +24,17 @@ $targets = @(
     @{ Src = 'Keybinds.cs'; Out = 'Keybinds.exe';
        Refs = @('System.Windows.Forms.dll');                                  Kind = 'exe' },
     @{ Src = 'Ot2Mod.cs';   Out = 'Ot2Mod.exe';   Refs = @();                 Kind = 'exe' },
-    @{ Src = 'Ot2Anim.cs';  Out = 'Ot2Anim.exe';  Refs = @();                 Kind = 'exe' }
+    @{ Src = 'Ot2Anim.cs';  Out = 'Ot2Anim.exe';  Refs = @();                 Kind = 'exe' },
+    # x86 deliberately: it reads the thread context of game.exe, a 32-bit process
+    @{ Src = 'Sampler.cs';  Out = 'Sampler.exe';  Refs = @();                 Kind = 'exe'; Platform = 'x86' }
 )
 
 foreach ($t in $targets) {
     $src = Join-Path $PSScriptRoot $t.Src
     if (-not (Test-Path $src)) { continue }
     # NB: not $args - that is an automatic variable in PowerShell
-    $cscArgs = @('/nologo', '/o+', '/platform:x64', "/target:$($t.Kind)",
+    $plat = if ($t.ContainsKey('Platform')) { $t.Platform } else { 'x64' }
+    $cscArgs = @('/nologo', '/o+', "/platform:$plat", "/target:$($t.Kind)",
                  "/out:$(Join-Path $OutDir $t.Out)")
     foreach ($r in $t.Refs) { $cscArgs += "/r:$r" }
     $cscArgs += $src

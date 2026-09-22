@@ -92,7 +92,87 @@ directly configurable. If pacing is poor rather than throughput, the lever is
 a D3D9 translation layer (DXVK's `d3d9.dll` dropped next to `game.exe`) or
 driver-level frame limiting — not game settings.
 
-## Performance: slow, and not for the reasons you would guess
+## Performance: one CPU loop in Renderer.dll
+
+The game runs at roughly **10 fps** in a developed round, on any hardware,
+with both CPU and GPU apparently idle. A sampling profile settles why.
+
+### What the profiler found
+
+`tools/Sampler.exe` stops the busiest thread ~1,000 times and attributes each
+instruction pointer to a module. Two runs, 958 and 959 samples, no failures:
+
+| Module | Share |
+|---|---|
+| **`Renderer.dll`** | **83–85%** |
+| `d3d9.dll` | 6–8% |
+| `AMDXN32.DLL` (driver) | 4–5% |
+| `ntdll` / `win32u` | 3% |
+| `Core.DLL` | **0.7–1.7%** |
+
+Within `Renderer.dll` the time is extraordinarily concentrated — 97% of it
+falls in two regions:
+
+| RVA | Share | What the code is |
+|---|---|---|
+| `0x0BBAC0` | 46.6% | SSE 4×4 matrix × vector transform — `movaps` matrix rows, `shufps` broadcast, `mulps`/`addps` accumulate |
+| `0x030B80`–`0x030CC0` | 50.5% | **x87** scalar vector add — `fld`/`fadd`/`fstp` per component |
+
+That second one is the interesting half. Those are legacy FPU stack
+instructions handling one float at a time, where the other region does four
+at once in SSE. It is MSVC 7.1 default codegen from 2003, when SSE could not
+be assumed. Modern CPUs execute x87 far more slowly relative to SSE than
+2006 CPUs did, so this code has aged badly in a way faster hardware cannot
+compensate for.
+
+### What this rules out
+
+Each of these was suspected during testing and each is disproved by the
+numbers above:
+
+- **The GPU.** 4–10% load. It is starved, not saturated.
+- **The driver and API.** D3D9 plus the AMD driver total ~11%.
+- **Game logic.** `Core.DLL` is under 2%, and `Logic Time` reads 0 ms.
+- **Software vertex processing.** That runs inside the D3D9 runtime, which
+  would put the time in `d3d9.dll`. It is not there, and `Renderer.dll`
+  contains shader machinery rather than a software fallback.
+- **DXVK.** Measured directly: it loads correctly and changes nothing. With
+  only ~11% of time in D3D9, there was nothing for a translation layer to
+  win. `d3d9.cachedDynamicBuffers` and `apitraceMode` made no difference
+  either.
+
+### Why no single setting fixes it
+
+Every graphics setting feeds the same loop, so each removes only a slice:
+
+| Change | Gain |
+|---|---|
+| `water 0` | ~5 fps |
+| `reflections 0` + `shadows 0` | ~5 fps |
+| `drawtrees 0` | negligible |
+| `citydistance` 135 → 60 | ~10 fps |
+| **all of the above together** | **10 → 50 fps** |
+
+`Renderer.dll` exposes `CWaterImp::BeginRenderReflection` *and*
+`BeginRenderRefraction`, plus `CO2_TerrainMgr::RenderReflection` and
+`RenderRefraction`. Water and reflections drive **separate full scene
+passes**, and each pass re-runs that transform loop — the DXVK HUD counts 53
+render passes at full settings against 4 with everything off. The cost is
+distributed across passes and objects, not concentrated in one feature.
+
+So the practical lever is total work. `mods/balanced` spends the budget
+deliberately: keep trees, cars and particles, drop the extra passes, pull
+`citydistance` in.
+
+### Older, wrong conclusions
+
+Earlier versions of this document blamed reflections, then shadows, then
+trees, and recommended DXVK. All were wrong. They came from comparing runs
+where the camera had moved between launches, and from reading queue-sync
+counts that the profiler overlay was itself producing. The sampling profile
+above replaced four hours of that guesswork in fifteen seconds.
+
+## Notes on measuring this game
 
 The game runs in the teens in a round — around **11 fps** stock — with both
 CPU and GPU idle. Idle hardware and a 90 ms frame means it is blocked, not

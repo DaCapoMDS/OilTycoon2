@@ -51,7 +51,10 @@ deletes them instead of restoring.
 
 | Mod | What it does |
 |---|---|
-| `display-1440x1080` | 4:3 at full screen height — corrects the horizontal stretch caused by the engine having no aspect-ratio handling |
+| `balanced` | **Start here.** Keeps trees, cars and particles; drops reflections, shadows and water refraction; `citydistance 70`. The settings that came out of profiling |
+| `display-1440x1080` | Full quality at 4:3 — corrects the horizontal stretch caused by the engine having no aspect-ratio handling |
+| `minimum` | Diagnostic control: everything off. Ugly, ~50 fps. Use it to see what the engine is capable of on your machine |
+| `dxvk` | Direct3D 9 to Vulkan. **Measured as no help here** — see `docs/TUNING.md` — kept for its HUD |
 | `animations-*` | **Generated**, not shipped — see below |
 
 ## Animation speed

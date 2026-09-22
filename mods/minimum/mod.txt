@@ -1,0 +1,1 @@
+The only settings ever measured fast (~50 fps, 605 draw calls). Deliberately ugly - a control, not a way to play.

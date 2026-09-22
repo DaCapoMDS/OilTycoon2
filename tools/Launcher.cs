@@ -28,6 +28,8 @@ class Launcher : Form {
     TextBox tbImage, tbTarget;
     CheckBox cbDecrypt;
     Button btInstall, btVerify, btPlay, btDecrypt, btBrowseImage, btBrowseTarget;
+    Button btApplyMod, btRevertMod, btRevertAll;
+    ListBox lstMods;
     RichTextBox log;
     Label lbImageInfo, lbStatus;
     ProgressBar bar;
@@ -45,8 +47,8 @@ class Launcher : Form {
             Path.GetDirectoryName(Application.ExecutablePath), "..", ".."));
 
         Text = "Oil Tycoon 2 - Revival Launcher";
-        ClientSize = new Size(820, 660);
-        MinimumSize = new Size(720, 600);
+        ClientSize = new Size(820, 790);
+        MinimumSize = new Size(760, 700);
         Font = new Font("Segoe UI", 9f);
         StartPosition = FormStartPosition.CenterScreen;
         BackColor = Ink;
@@ -98,7 +100,26 @@ class Launcher : Form {
         btPlay = Btn("Play", 450, y, 104, 34, true);
         btPlay.Click += (s, e) => DoPlay();
         Add(btInstall); Add(btVerify); Add(btDecrypt); Add(btPlay);
-        y += 42;
+        y += 44;
+
+        Add(SectionLabel("3.   Mods        game\\ stays identical to the disc until one is applied", 14, y));
+        y += 26;
+
+        lstMods = new ListBox {
+            Left = 14, Top = y, Width = 534, Height = 96,
+            BackColor = Field, ForeColor = Parch, BorderStyle = BorderStyle.FixedSingle,
+            Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+        };
+        lstMods.SelectedIndexChanged += (s, e) => UpdateModLabels();
+        Add(lstMods);
+        btApplyMod = Btn("Apply", 560, y, 104, 28, false);
+        btApplyMod.Click += (s, e) => RunAsync(() => DoMod("apply"));
+        btRevertMod = Btn("Revert", 560, y + 34, 104, 28, false);
+        btRevertMod.Click += (s, e) => RunAsync(() => DoMod("revert"));
+        btRevertAll = Btn("Revert all", 560, y + 68, 104, 28, false);
+        btRevertAll.Click += (s, e) => RunAsync(DoRevertAll);
+        Add(btApplyMod); Add(btRevertMod); Add(btRevertAll);
+        y += 106;
 
         bar = new ProgressBar {
             Left = 14, Top = y, Width = 760, Height = 4,
@@ -110,7 +131,7 @@ class Launcher : Form {
         y += 12;
 
         log = new RichTextBox {
-            Left = 14, Top = y, Width = 760, Height = 372,
+            Left = 14, Top = y, Width = 760, Height = 300,
             ReadOnly = true, BorderStyle = BorderStyle.None,
             Font = new Font("Consolas", 9f),
             BackColor = Panel, ForeColor = Parch,
@@ -119,7 +140,7 @@ class Launcher : Form {
         Add(log);
 
         lbStatus = new Label {
-            Left = 16, Top = y + 380, Width = 760, ForeColor = Muted, BackColor = Color.Transparent,
+            Left = 16, Top = y + 308, Width = 760, ForeColor = Muted, BackColor = Color.Transparent,
             Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom
         };
         Add(lbStatus);
@@ -136,6 +157,7 @@ class Launcher : Form {
 
         AutoDetect();
         LoadGameIcon();
+        RefreshMods();
         Status("Ready.");
     }
 
@@ -304,8 +326,11 @@ class Launcher : Form {
         if (InvokeRequired) { BeginInvoke((MethodInvoker)(() => SetBusy(busy))); return; }
         btInstall.Enabled = btVerify.Enabled = btDecrypt.Enabled = btPlay.Enabled = !busy;
         btBrowseImage.Enabled = btBrowseTarget.Enabled = !busy;
+        btRevertAll.Enabled = !busy;
+        lstMods.Enabled = !busy;
+        if (busy) { btApplyMod.Enabled = btRevertMod.Enabled = false; }
+        else UpdateModLabels();          // re-enables per applied state
         bar.Visible = busy;
-        if (!busy) Status("Ready.");
     }
 
     int Run(string exe, string args, string workDir) {
@@ -391,6 +416,80 @@ class Launcher : Form {
         Run(Path.Combine(ToolsBin, "Ot2Crypt.exe"),
             "decrypt \"" + core + "\" \"" + Path.Combine(target, "DATA") + "\" \"" +
             Path.Combine(repoRoot, "decrypted", "DATA") + "\"", repoRoot);
+    }
+
+    // ---- mods ---------------------------------------------------------------
+
+    string ModsRoot { get { return Path.Combine(repoRoot, "mods"); } }
+
+    // Same rule Ot2Mod uses: a mod is applied when its backup manifest exists.
+    bool ModApplied(string name) {
+        return File.Exists(Path.Combine(ModsRoot, ".backups", name, "files.txt"));
+    }
+
+    void RefreshMods() {
+        if (lstMods.InvokeRequired) { lstMods.BeginInvoke((MethodInvoker)RefreshMods); return; }
+        string keep = lstMods.SelectedItem as string;
+        lstMods.Items.Clear();
+        if (!Directory.Exists(ModsRoot)) { lstMods.Items.Add("(no mods folder)"); return; }
+        foreach (var d in Directory.GetDirectories(ModsRoot)) {
+            string n = Path.GetFileName(d);
+            if (n.StartsWith(".")) continue;
+            lstMods.Items.Add(n);
+        }
+        if (lstMods.Items.Count == 0) { lstMods.Items.Add("(no mods)"); return; }
+        int idx = keep != null ? lstMods.Items.IndexOf(keep) : -1;
+        lstMods.SelectedIndex = idx >= 0 ? idx : 0;
+        UpdateModLabels();
+    }
+
+    void UpdateModLabels() {
+        // show applied state in the buttons rather than rewriting list entries
+        string sel = SelectedMod();
+        if (sel == null) { btApplyMod.Enabled = btRevertMod.Enabled = false; return; }
+        bool on = ModApplied(sel);
+        btApplyMod.Enabled = !on;
+        btRevertMod.Enabled = on;
+        Status(on ? sel + " is applied." : sel + " is not applied.");
+    }
+
+    string SelectedMod() {
+        var s = lstMods.SelectedItem as string;
+        if (s == null || s.StartsWith("(")) return null;
+        return s;
+    }
+
+    bool GameRunningWarn() {
+        foreach (var p in Process.GetProcessesByName("game")) {
+            p.Dispose();
+            Say("The game is running. Close it first - it rewrites DATA\\ot2.cfg on exit,");
+            Say("which would overwrite whatever is applied.");
+            return true;
+        }
+        return false;
+    }
+
+    void DoMod(string verb) {
+        string sel = null;
+        Invoke((MethodInvoker)(() => sel = SelectedMod()));
+        if (sel == null) { Say("Select a mod first."); return; }
+        if (GameRunningWarn()) return;
+        EnsureTools();
+        Say("");
+        Say("=== " + verb + " " + sel + " ===");
+        Run(Path.Combine(ToolsBin, "Ot2Mod.exe"),
+            verb + " \"" + sel + "\" \"" + tbTarget.Text.Trim() + "\"", repoRoot);
+        RefreshMods();
+    }
+
+    void DoRevertAll() {
+        if (GameRunningWarn()) return;
+        EnsureTools();
+        Say("");
+        Say("=== revert all ===");
+        Run(Path.Combine(ToolsBin, "Ot2Mod.exe"),
+            "revert all \"" + tbTarget.Text.Trim() + "\"", repoRoot);
+        RefreshMods();
     }
 
     void DoPlay() {

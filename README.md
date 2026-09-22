@@ -136,7 +136,18 @@ and an `Exec` that runs script files. The multiplayer stack
 
 ## Licence
 
-The tools and documentation here are provided as-is for interoperability,
-preservation and personal backup of software you own. They include no game
-code or assets. Big Oil / Oil Tycoon 2 remains the property of its rights
-holders.
+[MIT](LICENSE), covering the tools and the documentation.
+
+Two things the licence deliberately does **not** cover:
+
+- **The game.** No game code, assets or data are included here. Big Oil /
+  Oil Tycoon 2 remains the property of its rights holders.
+- **The facts about its file formats** — field offsets, the obfuscation key,
+  and the filenames, sizes and CRC32 values in `docs/archive-manifest.tsv`.
+  Those are measurements of an existing work rather than original authorship,
+  and no ownership of them is claimed.
+
+This repository is not affiliated with, authorised by, or endorsed by Tri
+Synergy, JoWooD, Greenwood Entertainment, or any other rights holder. All
+trademarks belong to their respective owners. Everything here is for
+interoperability, preservation, and personal backup of software you own.

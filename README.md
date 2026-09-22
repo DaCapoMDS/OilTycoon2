@@ -136,9 +136,11 @@ and an `Exec` that runs script files. The multiplayer stack
 
 ## Licence
 
-[MIT](LICENSE), covering the tools and the documentation.
+[CC0 1.0](LICENSE) — public domain dedication. The tools and documentation
+here are given away: use them for anything, no attribution required, no
+permission to ask for.
 
-Two things the licence deliberately does **not** cover:
+Two things the dedication deliberately does **not** cover:
 
 - **The game.** No game code, assets or data are included here. Big Oil /
   Oil Tycoon 2 remains the property of its rights holders.

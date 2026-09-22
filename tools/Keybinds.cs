@@ -47,6 +47,9 @@ class Keybinds {
 
     [DllImport("user32.dll", SetLastError = true)]
     static extern uint SendInput(uint n, INPUT[] inputs, int cb);
+    [DllImport("user32.dll")]
+    static extern uint MapVirtualKey(uint uCode, uint uMapType);
+    const uint MAPVK_VK_TO_VSC = 0;
 
     [StructLayout(LayoutKind.Sequential)]
     struct INPUT { public uint type; public KEYBDINPUT ki; }
@@ -58,7 +61,20 @@ class Keybinds {
         public int pad1, pad2;   // pad INPUT out to the union's size
     }
     const uint INPUT_KEYBOARD = 1;
+    const uint KEYEVENTF_EXTENDEDKEY = 0x0001;
     const uint KEYEVENTF_KEYUP = 0x0002;
+    const uint KEYEVENTF_SCANCODE = 0x0008;
+
+    // Keys whose scancode must carry the E0 prefix. Arrows are in here, which
+    // matters: they are the game's camera keys.
+    static readonly HashSet<uint> Extended = new HashSet<uint> {
+        0x21, 0x22, 0x23, 0x24,       // PageUp PageDown End Home
+        0x25, 0x26, 0x27, 0x28,       // Left Up Right Down
+        0x2D, 0x2E,                   // Insert Delete
+        0x5B, 0x5C, 0x5D,             // LWin RWin Apps
+        0x6F,                         // numpad /
+        0xA3, 0xA5                    // RControl RAlt
+    };
 
     // marks input we generated, so the hook ignores its own output
     static readonly IntPtr MARKER = new IntPtr(0x07C2BD);
@@ -107,10 +123,25 @@ class Keybinds {
         } catch { return false; }
     }
 
+    static bool wasFocused;
+
+    // Reports when the game takes and loses focus, so "nothing happened" can
+    // be told apart from "the remapper never saw the game".
+    static bool FocusWithReport() {
+        bool now = GameHasFocus();
+        if (now != wasFocused) {
+            wasFocused = now;
+            Console.WriteLine(now
+                ? "  game focused   - remapping active"
+                : "  game unfocused - passing keys through");
+        }
+        return now;
+    }
+
     static IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam) {
         if (nCode >= 0) {
             var info = (KBDLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(KBDLLHOOKSTRUCT));
-            if (info.dwExtraInfo != MARKER && GameHasFocus()) {
+            if (info.dwExtraInfo != MARKER && FocusWithReport()) {
                 ushort to;
                 if (map.TryGetValue(info.vkCode, out to)) {
                     int msg = wParam.ToInt32();
@@ -123,11 +154,23 @@ class Keybinds {
         return CallNextHookEx(hook, nCode, wParam, lParam);
     }
 
+    // Sent as a SCANCODE, not a virtual key. The game reads the keyboard
+    // through DirectInput, which works from scancodes off the device stack
+    // and routinely ignores virtual-key injection - which is why the first
+    // version of this did nothing at all in game.
     static void Send(ushort vk, bool keyUp) {
+        ushort sc = (ushort)MapVirtualKey(vk, MAPVK_VK_TO_VSC);
+        if (sc == 0) return;
+
+        uint flags = KEYEVENTF_SCANCODE;
+        if (Extended.Contains(vk)) flags |= KEYEVENTF_EXTENDEDKEY;
+        if (keyUp) flags |= KEYEVENTF_KEYUP;
+
         var inputs = new INPUT[1];
         inputs[0].type = INPUT_KEYBOARD;
-        inputs[0].ki.wVk = vk;
-        inputs[0].ki.dwFlags = keyUp ? KEYEVENTF_KEYUP : 0;
+        inputs[0].ki.wVk = 0;                 // ignored when sending a scancode
+        inputs[0].ki.wScan = sc;
+        inputs[0].ki.dwFlags = flags;
         inputs[0].ki.dwExtraInfo = MARKER;
         SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT)));
     }

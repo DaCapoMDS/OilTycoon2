@@ -95,8 +95,11 @@ showing more of the map. 16:9 is offered because filling the screen is a
 reasonable thing to want; just know that it distorts. `1440×1080` is the
 largest undistorted option on a 1080p display.
 
-Fullscreen is a checkbox but usually refuses and falls back to 1280×1024, so
-windowed is the default.
+Fullscreen works — 1920×1080 fullscreen was confirmed running a scenario
+cleanly. An early attempt here did fall back to 1280×1024, but that run
+failed at startup for an unrelated reason, so treat a fallback as a symptom
+of something else rather than the resolution being refused. Windowed remains
+the default because it is the one that has never failed.
 
 ### Mods
 
@@ -125,12 +128,26 @@ changed from config. `tools/Keybinds.exe` remaps them from outside instead:
 .\tools\bin\Keybinds.exe
 ```
 
-The game's own keys are **arrows** to move the map, **Esc** for the menu, and
-**F1** for a developer overlay left in the retail build. `Keybinds.exe` edits
-`tools/bin/keybinds.ini`, created on first run, which defaults to WASD over
-the arrow keys — `Esc` and `F1` already work and need no remapping. It is active **only while the game window has
-focus**, every other application passes through untouched, and it translates
-keys without recording anything. Close the console window to stop it.
+The game's own keys are the **arrows** to move the map, **Esc** for the menu, and
+**F1** for a developer overlay left in the retail build. `Esc` and `F1` need
+no remapping.
+
+Press **Start WASD keys** in the launcher, or run it directly. It must be
+**running while you play** — it is a live process, not a file change, which
+is also why it is not a mod: there is nothing to apply or revert. Its window
+reports when the game takes focus, so you can tell it is active.
+
+The mapping lives in `tools/bin/keybinds.ini`, created on first run, and
+defaults to WASD over the arrow keys.
+
+It injects **scancodes**, not virtual-key codes. The game reads the keyboard
+through DirectInput, which works from scancodes off the device stack and
+ignores virtual-key injection — so a remapper built the obvious way does
+nothing at all in game.
+
+It is active **only while the game window has focus**; every other
+application passes through untouched, and it translates keys without
+recording anything. Close its window to stop it.
 
 Patching `core.dll` would be the alternative, but that stops `game/`
 verifying clean against the disc.

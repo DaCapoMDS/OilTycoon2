@@ -13,17 +13,25 @@ happily. So: run once, then edit.
 
 ## Resolution
 
-### Windowed takes any resolution; fullscreen does not
+### Both windowed and fullscreen accept non-default resolutions
 
 | Setting | Result |
 |---|---|
-| `vid_fullscreen 1` + 1920×1080 | **rejected** — silently rewritten to 1280×1024 |
 | `vid_fullscreen 0` + 1920×1080 | accepted and kept |
 | `vid_fullscreen 0` + 1440×1080 | accepted and kept |
+| `vid_fullscreen 1` + 1920×1080 | accepted and kept — ran a scenario cleanly |
+| `vid_fullscreen 1` + 1920×1080 (first attempt) | fell back to 1280×1024 |
 
-Fullscreen validates the request against an enumerated display-mode list and
-falls back when it does not find a match. Windowed mode does no such check.
-So any non-default resolution needs `vid_fullscreen 0`.
+That last row was measured before the others and led to an earlier claim
+here that fullscreen validates against an enumerated mode list. **That was
+wrong.** The same setting worked later, so the fallback was a symptom of a
+startup failure in that particular run — which also logged a `WndProc`
+exception and never reached a scenario — rather than the resolution being
+refused.
+
+If you see the resolution silently revert to 1280×1024, read it as "startup
+failed", check `log.txt`, and try windowed. Windowed is the default here only
+because it has never failed, not because fullscreen is unreliable.
 
 ### The engine has no aspect-ratio correction
 

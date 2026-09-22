@@ -28,7 +28,8 @@ class Launcher : Form {
     TextBox tbImage, tbTarget;
     CheckBox cbDecrypt;
     Button btInstall, btVerify, btPlay, btDecrypt, btBrowseImage, btBrowseTarget;
-    Button btApplyMod, btRevertMod, btRevertAll, btApplyRes;
+    Button btApplyMod, btRevertMod, btRevertAll, btApplyRes, btKeys;
+    Process keysProc;
     ComboBox cmbRes;
     CheckBox cbFullscreen;
     ListBox lstMods;
@@ -144,7 +145,7 @@ class Launcher : Form {
         foreach (var r in Resolutions) cmbRes.Items.Add(r);
         cmbRes.SelectedIndex = 3;                       // 1440x1080
         cbFullscreen = new CheckBox {
-            Text = "Fullscreen (often refused - falls back to 1280x1024)",
+            Text = "Fullscreen  (if it falls back to 1280x1024, untick this)",
             Left = 422, Top = y + 2, Width = 330,
             ForeColor = Muted, BackColor = Color.Transparent, FlatStyle = FlatStyle.Flat
         };
@@ -153,7 +154,13 @@ class Launcher : Form {
 
         btApplyRes = Btn("Apply resolution", 14, y, 150, 28, true);
         btApplyRes.Click += (s, e) => RunAsync(ApplyResolution);
-        Add(btApplyRes);
+        btKeys = Btn("Start WASD keys", 172, y, 150, 28, false);
+        btKeys.Click += (s, e) => ToggleKeys();
+        Add(btApplyRes); Add(btKeys);
+        Add(new Label {
+            Text = "WASD needs a helper running - it is not a file change, so it cannot be a mod",
+            Left = 332, Top = y + 6, Width = 460, ForeColor = Muted, BackColor = Color.Transparent
+        });
         y += 40;
 
         Add(SectionLabel("4.   Mods        game\\ stays identical to the disc until one is applied", 14, y));
@@ -472,6 +479,36 @@ class Launcher : Form {
         Run(Path.Combine(ToolsBin, "Ot2Crypt.exe"),
             "decrypt \"" + core + "\" \"" + Path.Combine(target, "DATA") + "\" \"" +
             Path.Combine(repoRoot, "decrypted", "DATA") + "\"", repoRoot);
+    }
+
+    // ---- WASD helper --------------------------------------------------------
+
+    // Keybinds.exe is a running process, not a file change, so it has no place
+    // in the mod system - but it should still be reachable from here.
+    void ToggleKeys() {
+        if (keysProc != null && !keysProc.HasExited) {
+            try { keysProc.Kill(); } catch { }
+            keysProc = null;
+            btKeys.Text = "Start WASD keys";
+            Say("WASD helper stopped.");
+            return;
+        }
+        string exe = Path.Combine(ToolsBin, "Keybinds.exe");
+        if (!File.Exists(exe)) { EnsureTools(); }
+        if (!File.Exists(exe)) { Say("Keybinds.exe is missing - build the tools first."); return; }
+        try {
+            keysProc = Process.Start(new ProcessStartInfo(exe) {
+                UseShellExecute = true, WorkingDirectory = ToolsBin
+            });
+            btKeys.Text = "Stop WASD keys";
+            Say("WASD helper started. It only rewrites keys while the game window is focused,");
+            Say("and its own window reports when the game takes focus.");
+        } catch (Exception ex) { Say("Could not start the WASD helper: " + ex.Message); }
+    }
+
+    protected override void OnFormClosing(FormClosingEventArgs e) {
+        if (keysProc != null && !keysProc.HasExited) { try { keysProc.Kill(); } catch { } }
+        base.OnFormClosing(e);
     }
 
     // ---- mods ---------------------------------------------------------------

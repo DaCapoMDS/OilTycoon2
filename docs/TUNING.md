@@ -118,12 +118,52 @@ falls in two regions:
 | `0x0BBAC0` | 46.6% | SSE 4×4 matrix × vector transform — `movaps` matrix rows, `shufps` broadcast, `mulps`/`addps` accumulate |
 | `0x030B80`–`0x030CC0` | 50.5% | **x87** scalar vector add — `fld`/`fadd`/`fstp` per component |
 
-That second one is the interesting half. Those are legacy FPU stack
-instructions handling one float at a time, where the other region does four
-at once in SSE. It is MSVC 7.1 default codegen from 2003, when SSE could not
-be assumed. Modern CPUs execute x87 far more slowly relative to SSE than
-2006 CPUs did, so this code has aged badly in a way faster hardware cannot
-compensate for.
+An earlier version of this document called the x87 half the problem, on the
+grounds that modern CPUs run it poorly. **That was wrong.** `fld`/`fadd`/
+`fstp` are perhaps 1.5–2× slower than scalar SSE from stack management, not
+the order of magnitude implied. The instruction set is not the story.
+
+### What the loop is actually doing
+
+The effect files answer it. `building.fx` and its siblings set
+**fixed-function** state:
+
+```hlsl
+float4x4 g_matWorld : WORLD;
+technique lod_0 { pass p0 { WorldTransform[0] = <g_matWorld>; ... } }
+```
+
+`WorldTransform[0]` hands the matrix to the GPU, so **the GPU already does
+the vertex transform** — and only 3 of 34 effects declare a vertex shader.
+The CPU loop is therefore not transforming vertices. It is doing *per-object*
+work: culling and matrix setup.
+
+And the arithmetic fits:
+
+```
+14,077 objects × 53 render passes ≈ 746,000 operations per frame
+```
+
+At roughly 75 ns apiece that is ~56 ms — the measured frame time.
+
+**The engine re-culls and re-transforms every object for every render pass**,
+rather than culling once per frame and reusing the result. The cost is a
+product, not a sum:
+
+| Settings | objects × passes | Result |
+|---|---|---|
+| everything on | 14,077 × 53 ≈ 746k | ~10 fps |
+| `mods/minimum` | ~8k × 4 ≈ 32k | ~50 fps |
+
+That is the whole explanation. It is also why no single setting ever helped
+much: halving the passes halves the product, halving the objects halves the
+product, and only doing both is dramatic. `citydistance` mattered most
+because it is the one setting that reduces the object count directly.
+
+The real repair would be to cull once per frame and share the result across
+passes — an algorithmic fix inside `Renderer.dll`, not an instruction-level
+one. No translation layer helps here: the problem is O(objects × passes)
+where it should be O(objects + passes).
 
 ### What this rules out
 

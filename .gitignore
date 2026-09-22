@@ -20,6 +20,11 @@ _staging/
 # The mods themselves are tracked; only the backups are not.
 mods/.backups/
 
+# Generated animation mods contain rewritten copies of the game's own models,
+# so they are game-derived content. Ot2Anim regenerates them from your own
+# decrypted data; the tool is tracked, its output is not.
+mods/animations-*/
+
 # Config and logs the game writes next to itself
 docs/ot2.cfg.shipped-encrypted
 docs/ot2.cfg.runtime-sample

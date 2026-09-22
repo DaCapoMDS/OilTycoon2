@@ -52,6 +52,51 @@ deletes them instead of restoring.
 | Mod | What it does |
 |---|---|
 | `display-1440x1080` | 4:3 at full screen height — corrects the horizontal stretch caused by the engine having no aspect-ratio handling |
+| `animations-*` | **Generated**, not shipped — see below |
+
+## Animation speed
+
+The models animate slowly: a pumpjack cycle is 19 keyframes spread over about
+4.7 seconds, roughly 4 keyframes a second, which reads as sluggish and steppy.
+
+Timing lives in the plain-text header of each `.O2M`:
+
+```
+FrameAnimationKeys
+{
+    key 0 { StartTimeInAnimation 0   }
+    key 1 { StartTimeInAnimation 259 }
+    key 2 { StartTimeInAnimation 518 }
+```
+
+`FrameAnimations` only names the animation and gives `start_key`/`end_key` —
+there is no duration field, so those timestamps alone set the speed.
+
+`Ot2Anim` scales them:
+
+```powershell
+tools\bin\Ot2Anim.exe decrypted\DATA\models 0.5      # twice as fast
+tools\bin\Ot2Anim.exe decrypted\DATA\models 0.25     # four times
+tools\bin\Ot2Anim.exe decrypted\DATA\models 2.0      # half speed
+tools\bin\Ot2Mod.exe  apply animations-2x
+```
+
+It rewrites each number **in place, space-padded to its original byte width**,
+so the file length never changes and the binary mesh data that follows the
+header stays exactly where it was. Verified: all 49 rewritten models match
+their originals in length byte for byte.
+
+Requires the decrypted data (launcher: *Decrypt data*).
+
+**These mods are gitignored.** They contain rewritten copies of the game's
+own models, which is game-derived content — so the tool is tracked and its
+output is not. Regenerate it on any machine from your own install.
+
+**What this does and does not fix.** It makes animations play faster. It does
+not add keyframes, so if the engine does not interpolate between them, the
+motion is still made of the same 19 steps — just shown twice as quickly. If
+the whole game stutters rather than only the animations, that is frame
+pacing; press `F1` for the profiler and read `docs/TUNING.md`.
 
 ## Two things to know
 

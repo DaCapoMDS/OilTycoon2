@@ -148,37 +148,53 @@ class Ot2Mod {
 
         string backupDir = Path.Combine(BackupRoot, mod);
         Directory.CreateDirectory(backupDir);
-        var applied = new List<string>();
+        int done = 0;
 
-        foreach (var rel in files) {
-            string src = Path.Combine(root, rel);
-            string dst = Path.Combine(gameDir, rel);
-            bool encrypt = false;
+        // The manifest is appended to as we go, and each entry is flushed
+        // before its file is overwritten. If this is interrupted - killed,
+        // power cut - every file already touched is listed with a complete
+        // backup beside it, so revert still puts everything back. Writing the
+        // manifest at the end instead would strand a half-applied install
+        // with no recorded way home.
+        using (var manifest = new StreamWriter(Path.Combine(backupDir, "files.txt"), true)) {
+            manifest.AutoFlush = true;
 
-            if (File.Exists(dst)) {
-                var original = File.ReadAllBytes(dst);
-                encrypt = IsEncr(original);
-                string bak = Path.Combine(backupDir, rel);
-                Directory.CreateDirectory(Path.GetDirectoryName(bak));
-                File.WriteAllBytes(bak, original);
-            } else {
-                // record that it did not exist, so revert removes it
-                string bak = Path.Combine(backupDir, rel + ".absent");
-                Directory.CreateDirectory(Path.GetDirectoryName(bak));
-                File.WriteAllText(bak, "");
+            foreach (var rel in files) {
+                string src = Path.Combine(root, rel);
+                string dst = Path.Combine(gameDir, rel);
+                bool encrypt = false;
+
+                // 1. capture the original, via a temp file so a partial write
+                //    can never masquerade as a good backup
+                if (File.Exists(dst)) {
+                    var original = File.ReadAllBytes(dst);
+                    encrypt = IsEncr(original);
+                    string bak = Path.Combine(backupDir, rel);
+                    Directory.CreateDirectory(Path.GetDirectoryName(bak));
+                    string tmp = bak + ".part";
+                    File.WriteAllBytes(tmp, original);
+                    if (File.Exists(bak)) File.Delete(bak);
+                    File.Move(tmp, bak);
+                } else {
+                    string bak = Path.Combine(backupDir, rel + ".absent");
+                    Directory.CreateDirectory(Path.GetDirectoryName(bak));
+                    File.WriteAllText(bak, "");
+                }
+
+                // 2. record it before touching the install
+                manifest.WriteLine(rel);
+
+                // 3. now it is safe to overwrite
+                var content = File.ReadAllBytes(src);
+                if (encrypt && !IsEncr(content)) content = Encrypt(content, key);
+                Directory.CreateDirectory(Path.GetDirectoryName(dst));
+                File.WriteAllBytes(dst, content);
+
+                done++;
+                Console.WriteLine("  {0}{1}", rel, encrypt ? "   (encrypted to match the original)" : "");
             }
-
-            var content = File.ReadAllBytes(src);
-            if (encrypt && !IsEncr(content)) content = Encrypt(content, key);
-
-            Directory.CreateDirectory(Path.GetDirectoryName(dst));
-            File.WriteAllBytes(dst, content);
-            applied.Add(rel);
-            Console.WriteLine("  {0}{1}", rel, encrypt ? "   (encrypted to match the original)" : "");
         }
-
-        File.WriteAllLines(Path.Combine(backupDir, "files.txt"), applied.ToArray());
-        Console.WriteLine("Applied {0}: {1} file(s). Originals saved under mods\\.backups\\{0}", mod, applied.Count);
+        Console.WriteLine("Applied {0}: {1} file(s). Originals saved under mods\\.backups\\{0}", mod, done);
         return 0;
     }
 

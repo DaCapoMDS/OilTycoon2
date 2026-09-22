@@ -20,7 +20,9 @@ $targets = @(
     @{ Src = 'Ot2Crypt.cs'; Out = 'Ot2Crypt.exe'; Refs = @('System.Xml.dll'); Kind = 'exe' },
     @{ Src = 'Solve.cs';    Out = 'Solve.exe';    Refs = @();                 Kind = 'exe' },
     @{ Src = 'Launcher.cs'; Out = 'OilTycoon2Launcher.exe';
-       Refs = @('System.Windows.Forms.dll', 'System.Drawing.dll');            Kind = 'winexe' }
+       Refs = @('System.Windows.Forms.dll', 'System.Drawing.dll');            Kind = 'winexe' },
+    @{ Src = 'Keybinds.cs'; Out = 'Keybinds.exe';
+       Refs = @('System.Windows.Forms.dll');                                  Kind = 'exe' }
 )
 
 foreach ($t in $targets) {

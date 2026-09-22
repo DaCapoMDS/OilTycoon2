@@ -82,6 +82,24 @@ correctly, which the game needs and which is easy to get wrong.
 The launcher picks up the game's own icon from *your* installed copy at
 runtime; no game artwork is bundled here.
 
+### Modern keys (WASD)
+
+The game's input is DirectInput with the keys compiled in — there is no
+binding table in the data files and no `bind` command, so the keys cannot be
+changed from config. `tools/Keybinds.exe` remaps them from outside instead:
+
+```powershell
+.\tools\bin\Keybinds.exe
+```
+
+It edits `tools/bin/keybinds.ini`, created on first run, which defaults to
+WASD over the arrow keys. It is active **only while the game window has
+focus**, every other application passes through untouched, and it translates
+keys without recording anything. Close the console window to stop it.
+
+Patching `core.dll` would be the alternative, but that stops `game/`
+verifying clean against the disc.
+
 ### Or from the command line
 
 ```powershell

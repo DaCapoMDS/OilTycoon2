@@ -1,0 +1,9 @@
+Diagnostic: every expensive pass turned off, same resolution
+
+Not meant as a way to play - it is an A/B against the normal settings, to find
+out whether 20 fps in a round is the renderer or the simulation.
+
+Reflections and shadows each re-render part of the scene, and citydistance
+drives how many objects get drawn at all. If the frame rate barely moves with
+all of this off, the cost is not in rendering and no graphics setting will fix
+it - look at Logic Time in the F1 overlay instead.

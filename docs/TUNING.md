@@ -164,6 +164,35 @@ So the practical lever is total work. `mods/balanced` spends the budget
 deliberately: keep trees, cars and particles, drop the extra passes, pull
 `citydistance` in.
 
+### CPU affinity
+
+Processor affinity applies to a live process, so this is the one comparison
+here that could be made **without relaunching** — same session, same camera,
+same scene. `tools/ccd-test.ps1` cycles the settings and stacks the readings
+into one image.
+
+On a Ryzen 9 9950X3D (dual CCD, V-Cache on one die only), identical scene of
+14,077 objects:
+
+| Affinity | FPS | Frame Time |
+|---|---|---|
+| all cores, as Windows scheduled | 17 | 59 ms |
+| **CCD0 — the V-Cache die** | **18** | **56 ms** |
+| CCD1 — the high-clock die | 17 | 61 ms |
+
+CCD0 is best: about 9% ahead of CCD1 and 5% ahead of unpinned. Free, and it
+applies to a running game:
+
+```powershell
+tools\boost.ps1 -Ccd 0 -Priority High
+```
+
+Worth knowing what this is *not*: a 5% gain against a frame that is four to
+five times too long. The x87 loop is still the wall. It is also mildly
+surprising — the hot code is only ~400 bytes, so a cache-resident loop was
+expected to favour the higher-clocking die. That it does not suggests the
+loop streams through enough vertex data for cache to matter.
+
 ### Older, wrong conclusions
 
 Earlier versions of this document blamed reflections, then shadows, then

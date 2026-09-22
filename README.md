@@ -135,6 +135,7 @@ the manifest, a truncated asset would have sat there unnoticed.
 |---|---|
 | [`docs/SETUP-FACTORY-FORMAT.md`](docs/SETUP-FACTORY-FORMAT.md) | The Setup Factory container: overlay layout, XOR-0x07 engine obfuscation, MFC-serialised manifest, payload blocks |
 | [`docs/ENCRYPTION.md`](docs/ENCRYPTION.md) | The `encr` data-file cipher, fully solved |
+| [`docs/TUNING.md`](docs/TUNING.md) | Resolution and aspect ratio, game speed vs frame rate, and the full command-variable reference |
 | [`docs/archive-manifest.tsv`](docs/archive-manifest.tsv) | All 3,337 files — relative path, size, compressed size, offset, CRC32 |
 
 ## The engine
@@ -180,11 +181,14 @@ and an `Exec` that runs script files. The multiplayer stack
 
 ## Known issues
 
-- **Widescreen does not work yet.** Writing `vid_width` / `vid_height` into
-  the config is discarded; the game rewrites 1280×1024. Resolution is chosen
-  from an enumerated mode list by index — `core.dll` exposes `vid_mode`,
-  `vid_modes` and `vid_restart`. Getting `vid_modes` to report that list is
-  the open thread.
+- **No true widescreen.** The engine has no aspect-ratio correction at all, so
+  a 16:9 backbuffer stretches the image by 1.333× rather than widening the
+  view. Run a 4:3 resolution instead — `1440×1080` windowed gives correct
+  proportions at roughly twice the pixels of the engine default. Fullscreen
+  additionally refuses any resolution outside its enumerated mode list.
+  See [`docs/TUNING.md`](docs/TUNING.md).
+- `vid_modes` throws an exception (caught, non-fatal) — a developer command
+  with no console to print to. Leave it out of config files.
 - `log.txt` records `Exception: .\core.cpp(465) - CCoreImp::WndProc` at
   startup. Handled, not fatal; the game runs past it.
 - The game reads and writes config and logs relative to the **working

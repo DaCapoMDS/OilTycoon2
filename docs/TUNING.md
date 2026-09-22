@@ -150,10 +150,60 @@ At roughly 75 ns apiece that is ~56 ms — the measured frame time.
 rather than culling once per frame and reusing the result. The cost is a
 product, not a sum:
 
-| Settings | objects × passes | Result |
+### The decisive measurement: it is not what you can see
+
+Point the camera at empty ocean so almost nothing is drawn:
+
+| | city in view | camera on empty ocean |
 |---|---|---|
-| everything on | 14,077 × 53 ≈ 746k | ~10 fps |
-| `mods/minimum` | ~8k × 4 ≈ 32k | ~50 fps |
+| Draw calls | 3,079 | **230** |
+| Cities visible | 2 | **0** |
+| GPU | 4% | 3% |
+| **Frame Time** | 51 ms | **51 ms** |
+| `Time 6` | — | **51 ms** (everything) |
+| `Time 0`–`Time 5` | — | 0 ms |
+
+Draw calls fall by 93% and **the frame time does not change at all.** The
+whole frame sits in the `Time 6` bucket while every other timer reads zero.
+
+So the cost is not drawing, not passes, not visible objects, and not the
+GPU. It is a **fixed per-frame cost** that the camera cannot escape: the
+renderer walks the entire world every frame, and only the *drawing* is
+view-culled. Zooming out culls the draw calls and leaves the work.
+
+This overturns the objects × passes model described below — that model
+predicted the frame should collapse when nothing is drawn, and it does not.
+What settings actually change is the size of the world the renderer walks,
+which is why `citydistance` was the only lever with a clean effect and why
+camera position never mattered.
+
+### Measured, in a round
+
+| Settings | FPS | Frame | Draw calls |
+|---|---|---|---|
+| stock, everything on | 10 | 90 ms | 3,579 |
+| **`mods/balanced`** | **20** | **51 ms** | 3,079 |
+| `mods/minimum` (control) | 50 | 20 ms | 605 |
+
+`balanced` doubles the frame rate while keeping trees, cars, particles and
+full texture detail. `minimum` is a control, not a way to play.
+
+**The objects × passes model is wrong**, and the empty-ocean test above is
+what disproves it. It predicted `balanced` should approach 50 fps (it
+reaches 20) and that a frame drawing 230 calls should be nearly free (it
+costs the same 51 ms as one drawing 3,079).
+
+What the evidence actually supports: a **fixed per-frame cost, proportional
+to the size of the active world rather than to anything on screen**, living
+in the `Time 6` bucket. Settings help only insofar as they shrink that world
+— which is why `citydistance` was the one lever that ever produced a clean
+result, and why turning off reflections, shadows and trees each bought so
+little.
+
+Finding what `Time 6` wraps is the next step for anyone continuing this.
+`tools/Sampler.exe` narrows it to two regions in `Renderer.dll`
+(RVA `0x0BBAC0` and `0x030B80`–`0x030CC0`); correlating those with `Time 6`
+would identify the loop that runs regardless of the camera.
 
 That is the whole explanation. It is also why no single setting ever helped
 much: halving the passes halves the product, halving the objects halves the
